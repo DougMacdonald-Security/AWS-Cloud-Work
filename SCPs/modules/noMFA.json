@@ -1,0 +1,14 @@
+{
+  "Sid": "DenyConsoleAccessWithoutMFA",
+  "Effect": "Deny",
+  "Action": "*",
+  "Resource": "*",
+  "Condition": {
+    "BoolIfExists": {
+      "aws:MultiFactorAuthPresent": "false"
+    },
+    "StringEquals": {
+      "aws:PrincipalType": "IAMUser"
+    }
+  }
+}

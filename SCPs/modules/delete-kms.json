@@ -1,0 +1,15 @@
+{
+  "Sid": "DenyKMSKeyDeletion",
+  "Effect": "Deny",
+  "Action": [
+    "kms:ScheduleKeyDeletion",
+    "kms:DisableKey",
+    "kms:DeleteAlias"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringNotLike": {
+      "aws:PrincipalArn": "arn:aws:iam::*:role/*admin*"
+    }
+  }
+}

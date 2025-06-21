@@ -1,0 +1,189 @@
+pipeline:
+  projectIdentifier: Digital_Bank
+  orgIdentifier: Gibraltar_International_Bank
+  tags: {}
+  variables:
+    - name: Secret_Name
+      type: String
+      description: Secret name (eg numeral_sandbox/mtls)
+      required: true
+      value: <+input>.default(Client/Function)
+    - name: CERT
+      type: String
+      description: Certificate
+      required: true
+      value: <+input>.default(-----BEGIN CERTIFICATE REQUEST-----\n-----END CERTIFICATE REQUEST-----)
+    - name: KEY
+      type: String
+      description: Key
+      required: true
+      value: <+input>.default(-----BEGIN BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----)
+  stages:
+    - stage:
+        name: AWS Steps
+        identifier: AWS_Steps
+        type: CI
+        spec:
+          cloneCodebase: false
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: eksharnessconnection
+              namespace: harness-delegate-ng
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Sign Certificate
+                  identifier: Sign_Certificate
+                  spec:
+                    connectorRef: awsconnectorsharedserviceseuw1
+                    image: 533267216364.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsdoug
+                    shell: Sh
+                    command: |-
+                      #!/bin/bash
+                      set -euo pipefail
+
+                      TARGET_ACCOUNT_ID="891377009330"
+                      ROLE_NAME="Harness-CrossAccount"
+
+                      echo "Assuming role in target account..."
+                      ASSUME_ROLE_OUTPUT=$(aws sts assume-role \
+                        --role-arn arn:aws:iam::${TARGET_ACCOUNT_ID}:role/${ROLE_NAME} \
+                        --role-session-name HarnessSession)
+
+                      # Extract temporary credentials
+                      AWS_ACCESS_KEY_ID=$(echo $ASSUME_ROLE_OUTPUT | jq -r '.Credentials.AccessKeyId')
+                      AWS_SECRET_ACCESS_KEY=$(echo $ASSUME_ROLE_OUTPUT | jq -r '.Credentials.SecretAccessKey')
+                      AWS_SESSION_TOKEN=$(echo $ASSUME_ROLE_OUTPUT | jq -r '.Credentials.SessionToken')
+
+                      # Export credentials for subsequent AWS CLI commands
+                      export AWS_ACCESS_KEY_ID
+                      export AWS_SECRET_ACCESS_KEY
+                      export AWS_SESSION_TOKEN
+
+                      aws sts get-caller-identity
+
+
+                      # Variables
+                      S3_BUCKET_NAME="gib-inbound-mtls-truststore-shared"
+                      CA_CERT_OBJECT_KEY="truststoreProd.pem"
+                      SECRET_NAME="mtls/truststoreProd"
+                      MONTH_YEAR=$(date +"%b_%Y")  # Example: Feb_2025
+                      CERT_NAME="<+pipeline.variables.CLIENT_NAME>_${MONTH_YEAR}"
+                      SERIAL_NUMBER=$(openssl rand -hex 8 | tr '[:lower:]' '[:upper:]')
+                      EXPIRY_TIMESTAMP=$(( $(date +%s) + 31536000 ))
+                      # Convert timestamp to human-readable format (YYYY-MM-DD)
+                      EXPIRY_DATE=$(date -u -Iseconds | cut -d'T' -f1)
+                      CERT_REQ_IN="<+pipeline.variables.CERT_REQ_IN>"
+                      echo "Serial: $SERIAL_NUMBER"
+
+                      # Step 1: Download CA certificate from S3
+                      echo "Downloading CA certificate..."
+                      aws s3 cp s3://${S3_BUCKET_NAME}/${CA_CERT_OBJECT_KEY} truststore.pem --region eu-west-2 --sse aws:kms --sse-kms-key-id arn:aws:kms:eu-west-2:891377009330:key/cebe5601-19d2-46b0-aca4-ab7e4a762b19   
+
+                      # Validate CA certificate
+                      if [ ! -s "truststore.pem" ]; then
+                        echo "Error: CA certificate download failed."
+                        exit 100
+                      fi
+
+                      # Retrieve private key from Secrets Manager
+                      echo "Retrieving private key..."
+
+                      # Get the truststore_key value from Secrets Manager
+                      SERVER_KEY=$(aws secretsmanager get-secret-value --region eu-west-2 --secret-id 'mtls/truststoreProd' --query 'SecretString' --output text | jq -r .trustStoreProd_Key)
+
+                      # Extract the PEM headers and footers
+                      HEADER="-----BEGIN PRIVATE KEY-----"
+                      FOOTER="-----END PRIVATE KEY-----"
+                      BODY=$(echo "$SERVER_KEY" | sed -e "s/$HEADER//" -e "s/$FOOTER//" -e 's/ //g')  # Clean up spaces
+
+                      # Insert line breaks every 64 characters
+                      FORMATTED_BODY=$(echo "$BODY" | fold -w 64)
+
+                      # Combine everything into PEM format and save it to a file
+                      {
+                        echo "$HEADER"
+                        echo "$FORMATTED_BODY"
+                        echo "$FOOTER"
+                      } > server.key
+
+                      # Set proper file permissions for the private key
+                      chmod 600 server.key
+
+                      # Extract the PEM headers and footers
+                      HEADER="-----BEGIN CERTIFICATE REQUEST-----"
+                      FOOTER="-----END CERTIFICATE REQUEST-----"
+                      BODY=$(echo "$CERT_REQ_IN" | sed -e "s/$HEADER//" -e "s/$FOOTER//" -e 's/ //g')  # Clean up spaces
+
+                      # Insert line breaks every 64 characters
+                      FORMATTED_BODY=$(echo "$BODY" | fold -w 64)
+
+                      # Combine everything into PEM format and save it to a file
+                      {
+                        echo "$HEADER"
+                        echo "$FORMATTED_BODY"
+                        echo "$FOOTER"
+                      } > client.csr
+                      echo "Signing certificate..."
+                      openssl x509 -req -in client.csr -CA truststore.pem -CAkey server.key -set_serial 0x${SERIAL_NUMBER} -out ${CERT_NAME}.pem -sha256 -days 365
+                      # Verify certificate generation
+                      if [ ! -f "${CERT_NAME}.pem" ]; then
+                        echo "Error: Failed to sign the client certificate!"
+                        exit 1
+                      fi
+
+                      aws dynamodb --region eu-west-2 put-item --table-name mtls_issued_certificates \
+                        --item '{
+                          "serial_number": {"S": "'${SERIAL_NUMBER}'"},
+                          "client_name": {"S": "'${CERT_NAME}'"},
+                          "expiry_date": {"S": "'${EXPIRY_DATE}'"},
+                          "status": {"S": "valid"}
+                        }'
+
+
+                      # Export the signed certificate for later steps
+                      CERT=$(cat ${CERT_NAME}.pem | base64 -w 0)
+                      cert=$CERT
+
+                      # Cleanup
+                      shred -u server.key client.csr truststore.pem ${CERT_NAME}.pem
+
+                      echo "Certificate signing completed successfully."
+                    outputVariables:
+                      - name: cert
+                        type: String
+                        value: CERT
+                      - name: CERT_NAME
+                        type: String
+                        value: CERT_NAME
+        timeout: 2m
+    - stage:
+        name: Certificate Generation
+        identifier: Certificate_Generation
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: Email
+                  name: Send Signed Certificate
+                  identifier: Send_Signed_Certificate
+                  spec:
+                    to: <+pipeline.triggeredBy.email>
+                    cc: dsml@gft.com
+                    subject: Signed Certificate for <+pipeline.stages.AWS_Steps.spec.execution.steps.Sign_Certificate.output.outputVariables.CERT_NAME>
+                    body: <+pipeline.stages.AWS_Steps.spec.execution.steps.Sign_Certificate.output.outputVariables.cert>
+                  timeout: 5m
+          environment:
+            environmentRef: ingressdev
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: ingressinfradev
+        tags: {}
+  identifier: Update_AWS_Secrets
+  name: Update AWS Secrets

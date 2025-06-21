@@ -1,0 +1,129 @@
+pipeline:
+  name: Update AWS Secrets
+  identifier: Update_AWS_Secrets
+  projectIdentifier: Digital_Bank
+  orgIdentifier: Gibraltar_International_Bank
+  tags: {}
+  variables:
+    - name: Secret_Name
+      type: String
+      description: Secret name (eg numeral_sandbox/mtls)
+      required: true
+      value: <+input>.default(Client/Function)
+    - name: CERT
+      type: String
+      description: Certificate
+      required: true
+      value: <+input>.default(-----BEGIN CERTIFICATE REQUEST-----\n-----END CERTIFICATE REQUEST-----)
+    - name: KEY
+      type: String
+      description: Key
+      required: true
+      value: <+input>.default(-----BEGIN BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----)
+  stages:
+    - stage:
+        name: Check Secret Exists
+        identifier: Check_Secret_Exists
+        type: CI
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: MarkAsFailure
+        spec:
+          cloneCodebase: false
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Check Secret
+                  identifier: check_secret
+                  spec:
+                    connectorRef: awsconnectorsharedservices
+                    image: 533267216364.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsdoug
+                    shell: Sh
+                    command: |-
+                      set -e
+
+                      SECRET_NAME="<+pipeline.variables.Secret_Name>"
+
+                      echo "Checking if secret '$SECRET_NAME' exists in Secrets Manager..."
+
+                      SECRET_EXISTS=$(aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region eu-west-2 2>/dev/null || echo "NOT_FOUND")
+
+                      if echo "$SECRET_EXISTS" | grep -q "NOT_FOUND"; then
+                        echo "Secret '$SECRET_NAME' does not exist in Secrets Manager. Exiting..."
+                        exit 1
+                      else
+                        echo "Secret '$SECRET_NAME' exists. Proceeding..."
+                      fi
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: eksharnessconnection
+              namespace: harness-delegate-ng
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
+    - stage:
+        name: Update Secret
+        identifier: Update_Secret
+        type: CI
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: MarkAsFailure
+        spec:
+          cloneCodebase: false
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Update Secret Value
+                  identifier: update_secret
+                  spec:
+                    connectorRef: awsconnectorsharedservices
+                    image: 533267216364.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsdoug
+                    shell: Sh
+                    command: |-
+                      set -e
+                      SECRET_NAME="<+pipeline.variables.Secret_Name>"
+                      CERT_RAW="<+pipeline.variables.CERT>"
+                      KEY_RAW="<+pipeline.variables.KEY>"
+
+                      # Function to clean and format PEM content
+                      format_pem() {
+                        local raw_input="$1"
+                        local begin_line=$(echo "$raw_input" | grep "BEGIN")
+                        local end_line=$(echo "$raw_input" | grep "END")
+                        local body=$(echo "$raw_input" | sed '/BEGIN/d;/END/d;/^\s*$/d' | tr -d '\n')
+
+                        # Fold the body to 64-char lines and reconstruct
+                        local folded_body=$(echo "$body" | fold -w 64)
+                        echo -e "${begin_line}\n${folded_body}\n${end_line}"
+                      }
+
+                      # Format both PEMs
+                      CERT_FORMATTED=$(format_pem "$CERT_RAW")
+                      KEY_FORMATTED=$(format_pem "$KEY_RAW")
+
+                      # Escape newlines and double-quotes for JSON
+                      CERT_ESCAPED=$(echo "$CERT_FORMATTED" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+                      KEY_ESCAPED=$(echo "$KEY_FORMATTED" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+
+                      # Construct final JSON payload
+                      SECRET_PAYLOAD="{\"clientCert\":\"$CERT_ESCAPED\",\"privKey\":\"$KEY_ESCAPED\"}"
+
+                      echo "Updating secret '$SECRET_NAME' with formatted values..."
+
+                      aws secretsmanager update-secret \
+                        --secret-id "$SECRET_NAME" \
+                        --secret-string "$SECRET_PAYLOAD" \
+                        --region eu-west-2
+
+                      echo "✅ Secret updated successfully!"
+          infrastructure:
+            useFromStage: Check_Secret_Exists

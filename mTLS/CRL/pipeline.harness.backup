@@ -1,0 +1,258 @@
+pipeline:
+  name: mTLS REVOKE Certificate
+  identifier: mTLS_REVOKE_Certificate
+  projectIdentifier: Digital_Bank
+  orgIdentifier: Gibraltar_International_Bank
+  tags: {}
+  variables:
+    - name: SERIAL_NUMBER
+      type: String
+      description: Cert Serial Number
+      required: true
+      value: <+input>.default(FE3EE626F3E36F63)
+  stages:
+    - stage:
+        name: AWS Steps
+        identifier: AWS_Steps
+        type: CI
+        spec:
+          cloneCodebase: false
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: eksharnessconnection
+              namespace: harness-delegate-ng
+              automountServiceAccountToken: true
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Revoke Certificate
+                  identifier: Revoke_Certificate
+                  spec:
+                    connectorRef: awsconnectorsharedserviceseuw1
+                    image: 533267216364.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsdoug
+                    shell: Sh
+                    command: |-
+                      #!/bin/bash
+                      set -euo pipefail
+
+                      TARGET_ACCOUNT_ID="891377009330"
+                      ROLE_NAME="Harness-CrossAccount"
+
+                      echo "Assuming role in target account..."
+                      ASSUME_ROLE_OUTPUT=$(aws sts assume-role \
+                        --role-arn arn:aws:iam::${TARGET_ACCOUNT_ID}:role/${ROLE_NAME} \
+                        --role-session-name HarnessSession)
+
+                      # Extract temporary credentials
+                      AWS_ACCESS_KEY_ID=$(echo $ASSUME_ROLE_OUTPUT | jq -r '.Credentials.AccessKeyId')
+                      AWS_SECRET_ACCESS_KEY=$(echo $ASSUME_ROLE_OUTPUT | jq -r '.Credentials.SecretAccessKey')
+                      AWS_SESSION_TOKEN=$(echo $ASSUME_ROLE_OUTPUT | jq -r '.Credentials.SessionToken')
+
+                      # Export credentials for subsequent AWS CLI commands
+                      export AWS_ACCESS_KEY_ID
+                      export AWS_SECRET_ACCESS_KEY
+                      export AWS_SESSION_TOKEN
+
+                      aws sts get-caller-identity
+
+
+                      REGION="eu-west-2"
+                      TABLE="mtls_issued_certificates"
+
+                      # Normalize serial number
+                      SERIAL=$(echo "$SERIAL_NUMBER" | tr 'a-z' 'A-Z')
+                      echo "Checking certificate with serial: $SERIAL"
+
+                      # Get certificate details
+                      ITEM_JSON=$(aws dynamodb get-item \
+                      --region "$REGION" \
+                      --table-name "$TABLE" \
+                      --key "{\"serial_number\": {\"S\": \"$SERIAL\"}}" \
+                      --output json)
+
+                      if ! echo "$ITEM_JSON" | grep -q '"Item"'; then
+                        echo "Certificate with serial $SERIAL not found."
+                        exit 1
+                      fi
+
+                      STATUS=$(echo "$ITEM_JSON" | jq -r '.Item.status.S')
+                      EXPIRY=$(echo "$ITEM_JSON" | jq -r '.Item.expiry_date.S')
+                      CERT_NAME=$(echo "$ITEM_JSON" | jq -r '.Item.client_name.S')
+                      NOW_UTC=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+                      if [[ "$STATUS" == "REVOKED" ]]; then
+                        echo "Already revoked."
+                        echo "export CERT_NAME=$CERT_NAME" >> harness_output.sh
+                        exit 0
+                      fi
+
+                      if [[ "$EXPIRY" < "$NOW_UTC" ]]; then
+                        echo "Expired, cannot revoke."
+                        exit 1
+                      fi
+
+                      # Mark as revoked in DynamoDB
+                      aws dynamodb update-item \
+                      --region eu-west-2 \
+                      --table-name mtls_issued_certificates \
+                      --key "{\"serial_number\": {\"S\": \"$SERIAL\"}}" \
+                      --update-expression "SET #s = :revoked, revoked_at = :now" \
+                      --expression-attribute-names '{"#s": "status"}' \
+                      --expression-attribute-values "{\":revoked\": {\"S\": \"REVOKED\"}, \":now\": {\"S\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}}"
+
+                      echo "Revoked $SERIAL ($CERT_NAME) in database"
+                      echo "export CERT_NAME=$CERT_NAME" >> harness_output.sh
+                      echo "export SERIAL=$SERIAL" >> harness_output.sh
+
+                      # Create a temporary directory for CRL generation
+                      TEMP_DIR=$(mktemp -d)
+                      echo "Working in temporary directory: $TEMP_DIR"
+
+                      # Set up CA directory structure
+                      mkdir -p "$TEMP_DIR/newcerts"
+                      touch "$TEMP_DIR/index.txt"
+                      echo "01" > "$TEMP_DIR/serial"
+                      echo "01" > "$TEMP_DIR/crlnumber"
+
+                      # Download CA cert & key
+                      echo "Downloading CA certificate..."
+                      aws s3 cp "s3://gib-inbound-mtls-truststore-prod/truststore.pem" "$TEMP_DIR/ca.pem" --sse aws:kms --sse-kms-key-id "arn:aws:kms:eu-west-2:891377009330:key/6ea7fa13-3ff4-4b98-ba76-e0850acd93f3"
+
+                      # Get CA private key
+                      SECRET_FIELD="trustStoreProd_PrivKey"
+                      SECRET_ID="mtls/truststoreProd"
+                      OUTPUT_KEY="$TEMP_DIR/ca.key"
+
+                      echo "Retrieving CA private key..."
+                      RAW_KEY=$(aws secretsmanager get-secret-value \
+                      --region "$REGION" \
+                      --secret-id "$SECRET_ID" \
+                      --query 'SecretString' \
+                      --output text | jq -r ."$SECRET_FIELD")
+
+                      HEADER="-----BEGIN PRIVATE KEY-----"
+                      FOOTER="-----END PRIVATE KEY-----"
+                      BODY=$(echo "$RAW_KEY" | sed -e "s/$HEADER//" -e "s/$FOOTER//" -e 's/ //g')
+                      FORMATTED_BODY=$(echo "$BODY" | fold -w 64)
+
+                      {
+                        echo "$HEADER"
+                        echo "$FORMATTED_BODY"
+                        echo "$FOOTER"
+                      } > "$OUTPUT_KEY"
+                      chmod 600 "$OUTPUT_KEY"
+
+                      # Create OpenSSL config
+                      cat > "$TEMP_DIR/openssl.cnf" << EOF
+                      [ ca ]
+                      default_ca = CA_default
+
+                      [ CA_default ]
+                      dir = $TEMP_DIR
+                      database = \$dir/index.txt
+                      new_certs_dir = \$dir/newcerts
+                      certificate = \$dir/ca.pem
+                      private_key = \$dir/ca.key
+                      serial = \$dir/serial
+                      crlnumber = \$dir/crlnumber
+                      default_days = 365
+                      default_crl_days = 365
+                      default_md = sha256
+                      policy = policy_any
+                      copy_extensions = none
+                      name_opt = ca_default
+                      cert_opt = ca_default
+
+                      [ policy_any ]
+                      countryName = optional
+                      stateOrProvinceName = optional
+                      localityName = optional
+                      organizationName = optional
+                      organizationalUnitName = optional
+                      commonName = supplied
+                      emailAddress = optional
+
+                      [ req ]
+                      default_bits = 2048
+                      default_md = sha256
+                      distinguished_name = req_distinguished_name
+                      prompt = no
+
+                      [ req_distinguished_name ]
+                      CN = Temporary Certificate
+
+                      [ v3_ca ]
+                      subjectKeyIdentifier = hash
+                      authorityKeyIdentifier = keyid:always,issuer:always
+                      basicConstraints = critical, CA:true
+                      EOF
+
+                      # Create a temporary certificate to revoke
+                      echo "Creating temporary certificate..."
+                      openssl req -new -newkey rsa:2048 -nodes -keyout "$TEMP_DIR/temp.key" -out "$TEMP_DIR/temp.csr" -config "$TEMP_DIR/openssl.cnf"
+                      openssl ca -batch -config "$TEMP_DIR/openssl.cnf" -notext -in "$TEMP_DIR/temp.csr" -out "$TEMP_DIR/temp.crt" -days 1
+
+                      # Get the serial number of the temporary certificate
+                      TEMP_SERIAL=$(openssl x509 -in "$TEMP_DIR/temp.crt" -noout -serial | cut -d'=' -f2)
+                      echo "Temporary certificate serial: $TEMP_SERIAL"
+
+                      # Revoke the temporary certificate
+                      echo "Revoking temporary certificate..."
+                      openssl ca -config "$TEMP_DIR/openssl.cnf" -revoke "$TEMP_DIR/temp.crt"
+
+                      # Generate CRL
+                      echo "Generating CRL..."
+                      openssl ca -config "$TEMP_DIR/openssl.cnf" -gencrl -out "$TEMP_DIR/ca.crl"
+
+                      # Verify CRL
+                      echo "Verifying CRL..."
+                      openssl crl -in "$TEMP_DIR/ca.crl" -text -noout
+
+                      # Upload to S3
+                      echo "Uploading CRL to S3..."
+                      aws s3 cp "$TEMP_DIR/ca.crl" "s3://gib-inbound-mtls-truststore-prod/ca.crl" --sse aws:kms --sse-kms-key-id "arn:aws:kms:eu-west-2:891377009330:key/6ea7fa13-3ff4-4b98-ba76-e0850acd93f3"
+
+                      # Clean up
+                      rm -rf "$TEMP_DIR"
+
+                      echo "CRL updated and published."
+                    outputVariables:
+                      - name: CERT_NAME
+                        type: String
+                        value: CERT_NAME
+                      - name: SERIAL
+                        type: String
+                        value: SERIAL
+        timeout: 2m
+    - stage:
+        name: Notify
+        identifier: Notify
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: Email
+                  name: Email Revocation Notice
+                  identifier: Email_Revocation
+                  spec:
+                    to: <+pipeline.triggeredBy.email>
+                    cc: dsml@gft.com
+                    subject: Certificate Revoked - <+pipeline.stages.AWS_Steps.spec.execution.steps.Revoke_Certificate.output.outputVariables.CERT_NAME>
+                    body: |-
+                      The certificate with the following details has been revoked:
+
+                      - **Client Name**: <+pipeline.stages.AWS_Steps.spec.execution.steps.Revoke_Certificate.output.outputVariables.CERT_NAME>
+                      - **Serial Number**: <+pipeline.stages.AWS_Steps.spec.execution.steps.Revoke_Certificate.output.outputVariables.SERIAL>
+
+                      Action completed by: <+pipeline.triggeredBy.name>
+                  timeout: 5m
+          environment:
+            environmentRef: ingressdev
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: ingressinfradev
+

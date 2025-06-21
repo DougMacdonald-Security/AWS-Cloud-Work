@@ -1,0 +1,13 @@
+{
+  "Sid": "DenyCreateAccessKeys",
+  "Effect": "Deny",
+  "Action": [
+    "iam:CreateAccessKey"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringNotLike": {
+      "aws:PrincipalArn": "arn:aws:iam::*:role/Admin*"
+    }
+  }
+}

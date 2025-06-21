@@ -1,0 +1,194 @@
+pipeline:
+  name: Certificate Approval
+  identifier: Certificate_Approval
+  projectIdentifier: Digital_Bank
+  orgIdentifier: Gibraltar_International_Bank
+  tags: {}
+  stages:
+    - stage:
+        name: Approval
+        identifier: Approval
+        description: ""
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: Email
+                  name: Email
+                  identifier: Email
+                  spec:
+                    to: doug.macdonald@gft.com
+                    cc: <+pipeline.triggeredBy.email>
+                    subject: Harness - Certificate Request
+                    body: "Here: <+pipeline.executionUrl>"
+                  timeout: 10m
+              - step:
+                  name: Approve
+                  identifier: Approve
+                  type: HarnessApproval
+                  timeout: 1d
+                  spec:
+                    approvalMessage: The Certificate Request is for <+pipeline.variables.CommonName>
+                    includePipelineExecutionHistory: true
+                    approvers:
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+                      userGroups:
+                        - GIB_Security_Team
+                    isAutoRejectEnabled: false
+                    approverInputs: []
+        tags: {}
+    - stage:
+        name: AWS Steps
+        identifier: AWS_Steps
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: false
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: eksharnessconnection
+              namespace: harness-delegate-ng
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Run
+                  identifier: Run
+                  spec:
+                    connectorRef: awsconnectorsharedserviceseuw1
+                    image: 533267216364.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsclisll
+                    shell: Sh
+                    command: |-
+                      if [[ "<+pipeline.variables.CERT_TYPE>" == "public" ]]; then
+                        echo "Generating public certificate using AWS ACM"
+                        
+                        # Request public certificate and capture output (ARN, CNAME entries)
+                        CERT_ARN=$(aws acm request-certificate --domain-name <+pipeline.variables.CommonName> --key-algorithm EC_secp384r1 --validation-method DNS --query CertificateArn  --tags Key=map-migrated,Value=mig1AXIMC113Y --output text)
+                        
+                        # Retrieve DNS CNAME validation options
+                        DNS_CNAME=$(aws acm describe-certificate --certificate-arn $CERT_ARN --query 'Certificate.DomainValidationOptions[].ResourceRecord' --output text)
+                        
+                        # Output structure for public certificate
+                        CERT_KEY="N/A"
+                        CERT="N/A"
+
+                      elif [[ "<+pipeline.variables.CERT_TYPE>" == "private" ]]; then
+                        echo "Generating private certificate using AWS ACM PCA"
+                        
+                        # Request private certificate using AWS ACM PCA
+                        openssl ecparam -name secp384r1 -genkey -noout -out priv-key.pem
+                        openssl req -new -SHA384 -key priv-key.pem -nodes -out csr.pem -subj "/C=GB/ST=London/L=Gibraltar/O=GIB/OU=CloudMigration/CN=<+pipeline.variables.CommonName>"
+                        CERT_ARN=$(aws acm-pca issue-certificate --region eu-west-2 --certificate-authority-arn "arn:aws:acm-pca:eu-west-2:533267216364:certificate-authority/c07982b4-76c8-4573-9f97-e21c4817da53" --csr fileb://csr.pem --signing-algorithm SHA384WITHECDSA --validity Value=365,Type="DAYS" --query CertificateArn --output text)
+                        
+                        # Output structure for private certificate
+                        CERT_KEY="Private Key Generated"
+                        CERT="N/A"
+                        DNS_CNAME="N/A"
+
+                      fi
+                    outputVariables:
+                      - name: CERT_TYPE_OUTPUT
+                        type: String
+                        value: CERT_TYPE_OUTPUT
+                      - name: CERT_ARN
+                        type: String
+                        value: CERT_ARN
+                      - name: DNS_CNAME
+                        type: String
+                        value: DNS_CNAME
+        timeout: 1m
+    - stage:
+        name: Certificate Generation
+        identifier: Certificate_Generation
+        description: ""
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: ShellScript
+                  name: ShellScript
+                  identifier: ShellScript
+                  spec:
+                    shell: Bash
+                    executionTarget: {}
+                    source:
+                      type: Inline
+                      spec:
+                        script: |-
+                          if [[ "<+pipeline.variables.CERT_TYPE>" == "manual" ]]; then
+                          openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 -keyout client.key -out client.crt -subj "/C=GB/ST=London/L=Gibraltar/O=GIB/OU=CloudMigration/CN=<+pipeline.variables.CommonName>"
+                          # Capture output details
+                          CERT_DETAILS=$(openssl x509 -in client.crt -noout -text)
+                          detail=$CERT_DETAILS
+                          CERT_KEY=$(cat client.key)
+                          key=$CERT_KEY
+                          CERT=$(cat client.crt)
+                          cert=$CERT
+                          fi
+                    environmentVariables: []
+                    outputVariables:
+                      - name: cert
+                        type: String
+                        value: CERT
+                      - name: key
+                        type: String
+                        value: CERT_KEY
+                  timeout: 10m
+              - step:
+                  type: Email
+                  name: Send Certificate Details
+                  identifier: Send_Certificate_Details
+                  spec:
+                    to: <+pipeline.triggeredBy.email>
+                    cc: dsml@gft.com
+                    subject: Certificate Details
+                    body: |
+                      Hello,
+
+                      **Certificate Type**: 
+                        <+pipeline.variables.CERT_TYPE>
+
+                      **Key**: 
+                        <+execution.steps.ShellScript.output.outputVariables.key>
+
+                      **Certificate**: 
+                        <+execution.steps.ShellScript.output.outputVariables.cert>
+
+                      **Certificate ARN**: 
+                        <+execution.steps.Run.output.outputVariables.CERT_ARN>
+
+                      **DNS CNAME Entries**: 
+                        <+execution.steps.Run.output.outputVariables.DNS_CNAME>
+
+                      Regards,
+                      CI/CD Pipeline
+                  timeout: 10m
+          environment:
+            environmentRef: ingressdev
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: ingressinfradev
+        tags: {}
+  variables:
+    - name: CERT_TYPE
+      type: String
+      description: Type of certificate
+      required: true
+      value: <+input>.allowedValues(manual,public,private).default(manual)
+    - name: CommonName
+      type: String
+      description: Name for the certificate
+      required: true
+      value: <+input>.default(example.com)
+    - name: AWS_Account
+      type: String
+      description: ""
+      required: true
+      value: <+input>.allowedValues(Shared,Network,DevTest,Prod).default(Shared)
