@@ -1,0 +1,6 @@
+ActivateHttpFloodProtectionParam      = "yes"
+ActivateScannersProbesProtectionParam = "yes"
+ENDPOINT                              = "ALB"
+ScannersProbesProtectionActivated     = "yes"
+ReputationListsProtectionActivated    = "yes"
+dev_alb_arn                           = "arn:aws:elasticloadbalancing:eu-west-1:533267118313:loadbalancer/app/Test-WAF/b69a845e13edf950"
