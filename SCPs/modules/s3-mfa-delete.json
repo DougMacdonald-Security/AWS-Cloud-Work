@@ -1,0 +1,11 @@
+    {
+      "Sid": "DenyS3BucketDeletionWithoutMFA",
+      "Effect": "Deny",
+      "Action": "s3:DeleteBucket",
+      "Resource": "*",
+      "Condition": {
+        "BoolIfExists": {
+          "aws:MultiFactorAuthPresent": "false"
+        }
+      }
+    }

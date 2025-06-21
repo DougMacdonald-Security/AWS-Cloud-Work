@@ -1,0 +1,14 @@
+{
+  "Sid": "DenyDeleteIAMUsersAndRoles",
+  "Effect": "Deny",
+  "Action": [
+    "iam:DeleteUser",
+    "iam:DeleteRole"
+  ],
+  "Resource": "*",
+  "Condition": {
+    "StringNotLike": {
+      "aws:PrincipalArn": "arn:aws:iam::*:role/*admin*"
+    }
+  }
+}

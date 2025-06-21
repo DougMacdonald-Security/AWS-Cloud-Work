@@ -1,0 +1,64 @@
+ {
+      "Sid": "DenyAllOutsideEU",
+      "Effect": "Deny",
+      "NotAction": [
+        "a4b:*",
+        "acm:*",
+        "aws-marketplace-management:*",
+        "aws-marketplace:*",
+        "aws-portal:*",
+        "budgets:*",
+        "ce:*",
+        "chime:*",
+        "cloudfront:*",
+        "config:*",
+        "cur:*",
+        "directconnect:*",
+        "ec2:DescribeRegions",
+        "ec2:DescribeTransitGateways",
+        "ec2:DescribeVpnGateways",
+        "fms:*",
+        "globalaccelerator:*",
+        "health:*",
+        "iam:*",
+        "importexport:*",
+        "kms:*",
+        "mobileanalytics:*",
+        "networkmanager:*",
+        "organizations:*",
+        "pricing:*",
+        "route53:*",
+        "route53domains:*",
+        "route53-recovery-cluster:*",
+        "route53-recovery-control-config:*",
+        "route53-recovery-readiness:*",
+        "s3:GetAccountPublic*",
+        "s3:ListAllMyBuckets",
+        "s3:ListMultiRegionAccessPoints",
+        "s3:PutAccountPublic*",
+        "shield:*",
+        "sts:*",
+        "support:*",
+        "trustedadvisor:*",
+        "waf-regional:*",
+        "waf:*",
+        "wafv2:*",
+        "wellarchitected:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": [
+            "eu-west-2",
+            "eu-west-1",
+            "us-east-1"
+          ]
+        },
+        "ArnNotLike": {
+          "aws:PrincipalARN": [
+            "arn:aws:iam::654654512313:role/aws-reserved/sso.amazonaws.com/eu-west-2/AWSReservedSSO_AWSAdministratorAccess_a17f7ae405710fd4",
+            "arn:aws:iam::590183752921:role/aws-reserved/sso.amazonaws.com/eu-west-2/AWSReservedSSO_AWSAdministratorAccess_11850c708e25111b"
+          ]
+        }
+      }
+    }
