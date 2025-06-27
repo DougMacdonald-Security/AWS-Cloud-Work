@@ -3,8 +3,8 @@ provider "aws" {
 }
 
 # Variables
-variable "organization_id" {default = ["o-3qytddfrsn"]}
-variable "delegated_admin_account_id" {default = ["891377009330"]}
+variable "organization_id" {default = ["o-HASH"]}
+variable "delegated_admin_account_id" {default = ["1234"]}
 variable "accounts" {
   description = "List of accounts and their application names"
   type = list(object({
@@ -13,20 +13,8 @@ variable "accounts" {
   }))
   default = [
     {
-      account_id       = "211125625664"
+      account_id       = "4321"
       application_name = "Network"
-    },
-    {
-      account_id       = "533267216364"
-      application_name = "Shared"
-    },
-    {
-      account_id       = "381491825821"
-      application_name = "DevTest"
-    },
-    {
-      account_id       = "010928204689"
-      application_name = "VeriparkDev"
     }
   ]
 }
