@@ -1,6 +1,6 @@
 variable "domain_name" {
   type    = string
-  default = "api.gib53dev.com"
+  default = "api.company.com"
 }
 
 variable "regional_certificate_arn" {
