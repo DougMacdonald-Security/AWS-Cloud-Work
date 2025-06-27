@@ -10,7 +10,7 @@ locals {
 variable "emailAddress" {
   type        = string
   description = "Enter the email address to subscribe to the SNS notification"
-  default = "doug.macdonald@gft.com"
+  default = "user@company.com"
 }
 # Break-glass IAM User
 resource "aws_iam_user" "break_glass_user" {
@@ -49,7 +49,7 @@ resource "aws_iam_user_policy_attachment" "assume-role" {
 #resource "aws_iam_user_mfa_device" "break_glass_user_mfa" {
 #  provider    = aws.management
 #  user        = aws_iam_user.break_glass_user.name
-#  serial_number = "arn:aws:iam::891377009330:mfa/break-glass-user"  # MFA YubiKeys have been delivered
+#  serial_number = "arn:aws:iam::4321:mfa/break-glass-user"  # MFA YubiKey
 #}
 
 
