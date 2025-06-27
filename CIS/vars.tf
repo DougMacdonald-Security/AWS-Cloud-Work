@@ -9,7 +9,7 @@ variable "log_group_name" {
 variable "alert_email" {
   description = "Email to receive alerts"
   type        = string
-  default     = "dsml@gft.com"
+  default     = "user@company.com"
 }
 
 variable "match_patterns" {
