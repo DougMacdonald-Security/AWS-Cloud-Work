@@ -6,17 +6,14 @@ locals {
 variable "emailAddress" {
   type        = string
   description = "Enter the email address to subscribe to the SNS notification"
-  default = "doug.macdonald@gft.com"
+  default = "user@company.com"
 }
 
 //Creates a Breakglass User
 resource "aws_iam_user" "bguser" {
   name = "BreakglassUser"
 }
-/* Assigning IAM Full Access to the breakglass user on the account where it's deployed
-The code currently uses the AWS managed IAMFullAccess policy to ensure that the Breakglass User has sufficient permissions to be used in case of an emergency. 
-This is NOT a least privileged policy and can be changed according to Organization's security requirements.
-*/
+
 resource "aws_iam_user_policy_attachment" "IAMAccess" {
   user       = aws_iam_user.bguser.name
   policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
@@ -157,12 +154,6 @@ data "aws_iam_policy_document" "sns_topic_policy" {
     resources = [aws_sns_topic.aws_logins.arn]
   }
 }
-
-/* Optional Customer CMK
-SNS allows encryption at rest for its topic. If SNS uses the default AWS Key Management Service (AWS KMS) key alias/aws/sns for this encryption, then CloudWatch alarms can't publish messages to the SNS topic. 
-The default AWS KMS key's policy for SNS doesn't allow CloudWatch alarms to perform kms:Decrypt and kms:GenerateDataKey API calls. Because this key is AWS managed, you can't manually edit the policy.
-If the SNS topic must be encrypted at rest, then use a customer managed key. 
-*/
 
 resource "aws_kms_key" "kmskey" {
   description             = "BreakGlass SNS Topic"
