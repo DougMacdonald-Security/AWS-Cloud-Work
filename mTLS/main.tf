@@ -64,7 +64,7 @@ resource "aws_api_gateway_domain_name" "mtls_domain" {
 
   tags = {
     Name = "Incoming mTLS API Gateway"
-    map-migrated = "mig1AXIMC113Y"
+    map-migrated = "Yup"
   }
 }
 
