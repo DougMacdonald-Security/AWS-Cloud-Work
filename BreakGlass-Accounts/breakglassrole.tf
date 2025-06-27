@@ -1,7 +1,7 @@
 variable "AccoundID" {
   type        = number
   description = "Enter the AWS account ID where the BreakGlassUser is deployed"
-  default = "654654512313"
+  default = "1234"
 }
 
 resource "aws_iam_role" "BreakGlassRole" {
