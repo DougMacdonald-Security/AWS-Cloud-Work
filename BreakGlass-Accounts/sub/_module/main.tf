@@ -17,17 +17,17 @@ resource "aws_iam_role" "break_glass_admin_role" {
       "Effect" : "Allow",
       "Principal" : {
         "AWS": [
-            "arn:aws:iam::654654512313:user/break-glass-user",  # Management account break-glass user
-            "arn:aws:iam::654654512313:root",  # Root user of the management account
-            "arn:aws:iam::891377009330:user/break-glass-user",  # SecurityTools account break-glass user
-            "arn:aws:iam::891377009330:root"  # Root user of the SecurityTools account
+            "arn:aws:iam::1234:user/break-glass-user",  # Management account break-glass user
+            "arn:aws:iam::1234:root",  # Root user of the management account
+            "arn:aws:iam::4321:user/break-glass-user",  # SecurityTools account break-glass user
+            "arn:aws:iam::4321:root"  # Root user of the SecurityTools account
           ]
       },
       "Action" : "sts:AssumeRole"
     }]
   })
     tags = {
-    map-migrate = "mig1AXIMC113Y"
+    map-migrate = "Yup"
   }
 }
 
