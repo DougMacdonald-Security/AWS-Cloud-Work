@@ -96,10 +96,10 @@ locals {
                 "ssm:StartSession"
             ],
             "Resource": [
-                "arn:aws:ssm:*:533267216364:document/*",
-                "arn:aws:ecs:*:533267216364:task/*",
-                "arn:aws:ec2:eu-west-2:533267216364:instance/i-023931467ffb1cb73",
-                "arn:aws:ssm:*:533267216364:session/*"
+                "arn:aws:ssm:*:1234:document/*",
+                "arn:aws:ecs:*:1234:task/*",
+                "arn:aws:ec2:eu-west-2:1234:instance/i-abc",
+                "arn:aws:ssm:*:1234:session/*"
             ]
         },
         {
@@ -196,7 +196,7 @@ locals {
 })
     }
       "EntraID-AWSVPSSMReadOnlyAccess" = {
-      description = "Veripark specific read-only"
+      description = "specific read-only"
       managed_policies = [
         "arn:aws:iam::aws:policy/job-function/ViewOnlyAccess"
       ]
@@ -255,7 +255,7 @@ locals {
                 "ssm:StartSession"
             ],
             "Resource": [
-                "arn:aws:ec2:eu-west-2:533267216364:instance/i-082692d83a6e5ee6e",
+                "arn:aws:ec2:eu-west-2:1234:instance/i-abc",
                 "arn:aws:ssm:*:*:managed-instance/*",
                 "arn:aws:ssm:*:*:document/AWS-StartPortForwardingSession"
             ],
@@ -405,8 +405,8 @@ locals {
                 "ssm:StartSession"
             ],
             "Resource": [
-                "arn:aws:ec2:eu-west-2:533267216364:instance/i-03ff3445e2ebc9a6d",
-                "arn:aws:ec2:eu-west-2:533267216364:instance/i-0d965f572f8db7ee7",
+                "arn:aws:ec2:eu-west-2:1234:instance/i-abc",
+                "arn:aws:ec2:eu-west-2:1234:instance/i-abc",
                 "arn:aws:ssm:*:*:managed-instance/*",
                 "arn:aws:ssm:*:*:document/AWS-StartPortForwardingSession"
             ],
@@ -662,15 +662,15 @@ locals {
 				"dynamodb:DescribeTableReplicaAutoScaling"
 			],
 			"Resource": [
-				"arn:aws:dynamodb:*:381491825821:table/PaymentLatestStatusProjection/index/*",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentStatus/index/*",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentStatusEventProjection/index/*",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentLatestStatusProjection/stream/*",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentStatus/stream/*",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentStatusEventProjection/stream/*",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentLatestStatusProjection",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentStatus",
-				"arn:aws:dynamodb:*:381491825821:table/PaymentStatusEventProjection"
+				"arn:aws:dynamodb:*:1234:table/PaymentLatestStatusProjection/index/*",
+				"arn:aws:dynamodb:*:1234:table/PaymentStatus/index/*",
+				"arn:aws:dynamodb:*:1234:table/PaymentStatusEventProjection/index/*",
+				"arn:aws:dynamodb:*:1234:table/PaymentLatestStatusProjection/stream/*",
+				"arn:aws:dynamodb:*:1234:table/PaymentStatus/stream/*",
+				"arn:aws:dynamodb:*:1234:table/PaymentStatusEventProjection/stream/*",
+				"arn:aws:dynamodb:*:1234:table/PaymentLatestStatusProjection",
+				"arn:aws:dynamodb:*:1234:table/PaymentStatus",
+				"arn:aws:dynamodb:*:1234:table/PaymentStatusEventProjection"
 			]
 		},
 		{
@@ -749,7 +749,7 @@ locals {
                 "ssm:StartSession"
             ],
             "Resource": [
-                "arn:aws:ec2:eu-west-2:533267216364:instance/i-0287a63418098e0f0",
+                "arn:aws:ec2:eu-west-2:1234:instance/i-abc",
                 "arn:aws:ssm:*:*:managed-instance/*",
                 "arn:aws:ssm:*:*:document/AWS-StartPortForwardingSession"
             ],
