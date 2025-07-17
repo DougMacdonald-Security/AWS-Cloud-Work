@@ -22,12 +22,12 @@ variable "accounts" {
 
 variable "firehose_delivery_stream_name" {
   description = "Name of the Kinesis Data Firehose delivery stream"
-  default     = "gib-waf-logs-delivery-stream"
+  default     = "waf-logs-delivery-stream"
 }
 
 variable "s3_bucket_name" {
   description = "Name of the S3 bucket for Firehose delivery"
-  default     = "gib-waf-logs-bucket"
+  default     = "waf-logs-bucket"
 }
 
 # Create an S3 bucket for Firehose delivery
@@ -116,8 +116,8 @@ resource "aws_iam_policy_attachment" "firehose_delivery_policy_attachment" {
 }
 
 # Example: Create a WAF WebACL and associate with ALB
-resource "aws_wafv2_web_acl" "gib-web-acl" {
-  name        = "gib-web-acl"
+resource "aws_wafv2_web_acl" "web-acl" {
+  name        = "web-acl"
   scope       = "REGIONAL"
   description = "GIB WAFv2 Web ACL"
   
@@ -154,7 +154,7 @@ resource "aws_wafv2_web_acl" "gib-web-acl" {
   }
 
   tags = {
-    Name = "gib-web-acl"
+    Name = "web-acl"
   }
 }
 
