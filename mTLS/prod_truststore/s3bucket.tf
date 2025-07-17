@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket         = "gib-security-bucket"
+    bucket         = "security-bucket"
     key            = "tfstate/mtls.tfstate"
     region         = "eu-west-2"
     encrypt        = true
@@ -8,7 +8,7 @@ terraform {
 }
 
 resource "aws_s3_bucket" "secure_bucket" {
-  bucket = "gib-inbound-mtls-truststore-prod"
+  bucket = "inbound-mtls-truststore-prod"
 }
 
 resource "aws_s3_bucket_ownership_controls" "secure_bucket" {
@@ -89,8 +89,8 @@ resource "aws_s3_bucket_policy" "secure_bucket" {
       "Principal": "*",
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::gib-inbound-mtls-truststore-prod/*",
-        "arn:aws:s3:::gib-inbound-mtls-truststore-prod"
+        "arn:aws:s3:::inbound-mtls-truststore-prod/*",
+        "arn:aws:s3:::inbound-mtls-truststore-prod"
       ],
       "Condition": {
         "Bool": {
