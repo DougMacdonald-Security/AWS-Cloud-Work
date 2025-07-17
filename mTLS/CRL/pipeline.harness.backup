@@ -2,14 +2,14 @@ pipeline:
   name: mTLS REVOKE Certificate
   identifier: mTLS_REVOKE_Certificate
   projectIdentifier: Digital_Bank
-  orgIdentifier: Gibraltar_International_Bank
+  orgIdentifier: Company
   tags: {}
   variables:
     - name: SERIAL_NUMBER
       type: String
       description: Cert Serial Number
       required: true
-      value: <+input>.default(FE3EE626F3E36F63)
+      value: <+input>.default(ABC1234)
   stages:
     - stage:
         name: AWS Steps
@@ -32,13 +32,13 @@ pipeline:
                   identifier: Revoke_Certificate
                   spec:
                     connectorRef: awsconnectorsharedserviceseuw1
-                    image: 533267216364.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsdoug
+                    image: 1234.dkr.ecr.eu-west-2.amazonaws.com/docker-2048:awsdoug
                     shell: Sh
                     command: |-
                       #!/bin/bash
                       set -euo pipefail
 
-                      TARGET_ACCOUNT_ID="891377009330"
+                      TARGET_ACCOUNT_ID="1234"
                       ROLE_NAME="Harness-CrossAccount"
 
                       echo "Assuming role in target account..."
@@ -119,7 +119,7 @@ pipeline:
 
                       # Download CA cert & key
                       echo "Downloading CA certificate..."
-                      aws s3 cp "s3://gib-inbound-mtls-truststore-prod/truststore.pem" "$TEMP_DIR/ca.pem" --sse aws:kms --sse-kms-key-id "arn:aws:kms:eu-west-2:891377009330:key/6ea7fa13-3ff4-4b98-ba76-e0850acd93f3"
+                      aws s3 cp "s3://inbound-mtls-truststore-prod/truststore.pem" "$TEMP_DIR/ca.pem" --sse aws:kms --sse-kms-key-id "arn:aws:kms:eu-west-2:1234:key/6ea7fa13-93f3"
 
                       # Get CA private key
                       SECRET_FIELD="trustStoreProd_PrivKey"
@@ -213,7 +213,7 @@ pipeline:
 
                       # Upload to S3
                       echo "Uploading CRL to S3..."
-                      aws s3 cp "$TEMP_DIR/ca.crl" "s3://gib-inbound-mtls-truststore-prod/ca.crl" --sse aws:kms --sse-kms-key-id "arn:aws:kms:eu-west-2:891377009330:key/6ea7fa13-3ff4-4b98-ba76-e0850acd93f3"
+                      aws s3 cp "$TEMP_DIR/ca.crl" "s3://inbound-mtls-truststore-prod/ca.crl" --sse aws:kms --sse-kms-key-id "arn:aws:kms:eu-west-2:1234:key/6ea7fa13-3acd93f3"
 
                       # Clean up
                       rm -rf "$TEMP_DIR"
@@ -240,7 +240,7 @@ pipeline:
                   identifier: Email_Revocation
                   spec:
                     to: <+pipeline.triggeredBy.email>
-                    cc: dsml@gft.com
+                    cc: me@company.com
                     subject: Certificate Revoked - <+pipeline.stages.AWS_Steps.spec.execution.steps.Revoke_Certificate.output.outputVariables.CERT_NAME>
                     body: |-
                       The certificate with the following details has been revoked:
