@@ -7,13 +7,13 @@ echo 1000 > serial
 echo 1000 > crlnumber
 
 openssl genpkey -algorithm EC -out private/ca.key -aes256 -pkeyopt ec_paramgen_curve:secp384r1
-COM&mTL$2025
+
 
 openssl req -new -x509 -days 3650 -key private/ca.key -out certs/ca.crt -subj "/C=GB/ST=Company/L=Company/O=COM/OU=CloudMigration/CN=mTLS CA"
 
 # CLIENT
 openssl genpkey -algorithm EC -out private/client.key -aes256 -pkeyopt ec_paramgen_curve:secp384r1
-COM&mTL$2025
+
 
 
 openssl req -new -key private/client.key -out csr/client.csr -subj "/C=GB/ST=Company/L=Company/O=COM/OU=CloudMigration/CN=mTLS Client"
