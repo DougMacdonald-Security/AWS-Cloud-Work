@@ -21,7 +21,7 @@ variable "match_patterns" {
   default = [
     {
       name    = "console-login-dsml"
-      pattern = "{ ($.eventName = \"ConsoleLogin\") && ($.userIdentity.arn = \"*dsml@gft.com*\") }"
+      pattern = "{ ($.eventName = \"ConsoleLogin\") && ($.userIdentity.arn = \"*me@company.com*\") }"
     }
   ]
 }
