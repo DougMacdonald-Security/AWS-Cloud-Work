@@ -1,12 +1,12 @@
 variable "AppAccessLogBucket" {
   description = "Application Access Log Bucket Name"
   type        = string
-  default     = "waf-access-gib-veriparkdev"
+  default     = "waf-access-dev"
 }
 variable "SourceBucket" {
   description = "Lambda source code bucket"
   type        = string
-  default     = "veripark-testing"
+  default     = "testing"
 }
 variable "KeyPrefix" {
   description = "Keyprefix values for the lambda source code"
