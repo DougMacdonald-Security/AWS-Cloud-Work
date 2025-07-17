@@ -7,16 +7,16 @@ echo 1000 > serial
 echo 1000 > crlnumber
 
 openssl genpkey -algorithm EC -out private/ca.key -aes256 -pkeyopt ec_paramgen_curve:secp384r1
-GIB&mTL$2025
+COM&mTL$2025
 
-openssl req -new -x509 -days 3650 -key private/ca.key -out certs/ca.crt -subj "/C=GB/ST=Gibraltar/L=Gibraltar/O=GIB/OU=CloudMigration/CN=mTLS CA"
+openssl req -new -x509 -days 3650 -key private/ca.key -out certs/ca.crt -subj "/C=GB/ST=Company/L=Company/O=COM/OU=CloudMigration/CN=mTLS CA"
 
 # CLIENT
 openssl genpkey -algorithm EC -out private/client.key -aes256 -pkeyopt ec_paramgen_curve:secp384r1
-GIB&mTL$2025
+COM&mTL$2025
 
 
-openssl req -new -key private/client.key -out csr/client.csr -subj "/C=GB/ST=Gibraltar/L=Gibraltar/O=GIB/OU=CloudMigration/CN=mTLS Client"
+openssl req -new -key private/client.key -out csr/client.csr -subj "/C=GB/ST=Company/L=Company/O=COM/OU=CloudMigration/CN=mTLS Client"
 
 
 openssl ca -batch -in csr/client.csr -out certs/client.crt -days 365 -keyfile private/ca.key -cert certs/ca.crt -extensions usr_cert
@@ -36,78 +36,15 @@ openssl ca -gencrl -out mtls.crl -keyfile server.key -cert truststore.pem
 
 
 
-curl https://sec.gib.bank/api/v1/core/cards/ehi --key client.key --cert client.pem -i \
+curl https://sec.company.coom/api/v1/core/cards/ehi --key client.key --cert client.pem -i \
     -H "Accept: application/json" \
     -H "X-HTTP-Method-Override: POST" \
     -X POST -d "{
   "Acquirer_Country": "GBR",
-  "FxProviderCardholderRate": 0.0,
-  "POS_Date_DE13": "0000-00-00",
-  "Traceid_Message": "VIS1-20221219-002353117950020",
-  "Visa_POS_Data_DE60": "020000000000",
-  "Network_Transaction_ID": "0002353117950020",
-  "DCC_Indicator": 0,
-  "multi_part_txn": 0,
-  "multi_part_txn_final": 0,
-  "auth_type": "0",
-  "auth_expdate_utc": "2022-12-27 07:28:36.045",
-  "Merch_Name": "Travel Like A Pro",
-  "Merch_Country": "HRV",
-  "GPS_POS_Capability": "00001001000000000000000100010010001000000001130C0",
-  "GPS_POS_Data": "9968000800000Nx000NNNNNU0NUUXXU",
-  "Response_Source_Why": 0,
-  "Message_Why": 0,
-  "traceid_lifecycle": "VIS1-20221219-002353117950020",
-  "Balance_Sequence": 114,
-  "Balance_Sequence_Exthost": 0,
-  "Acquirer_id_DE32": "0844622180",
-  "ActBal": 10001.0000,
-  "Auth_Code_DE38": "143088",
+
   "Avl_Bal": 10001.0000,
   "Bill_Amt": 1.0000,
-  "Bill_Ccy": "826",
-  "BlkAmt": 0.0000,
-  "FX_Pad": 0.0000,
-  "Fee_Fixed": 0.0000,
-  "Fee_Rate": 0.0000,
-  "MCC_Code": "4111",
-  "MCC_Desc": "Commuter Transport, Ferries",
-  "MCC_Pad": 0.0000,
-  "Merch_ID_DE42": "4111",
-  "Merch_Name_DE43": "Travel Like A Pro                     HR",
-  "POS_Data_DE22": "0110",
-  "Proc_Code": "200000",
-  "Resp_Code_DE39": "00",
-  "Ret_Ref_No_DE37": "235303502517",
-  "Settle_Amt": 1.0000,
-  "Settle_Ccy": "826",
-  "Status_Code": "00",
-  "Token": 107419774,
-  "Trans_link": "221219002517622180",
-  "Txn_Amt": 1.0000,
-  "Txn_CCy": "826",
-  "Txn_Ctry": "HRV",
-  "Txn_Desc": "Travel Like A Pro                     HR",
-  "Txn_GPS_Date": "2022-12-19 07:28:37.526",
-  "TXn_ID": 6155805913,
-  "Txn_Stat_Code": "A",
-  "TXN_Time_DE07": "1219072835",
-  "Txn_Type": "A",
-  "Authorised_by_GPS": "N",
-  "CU_Group": "DEF_PV",
-  "InstCode": "TEST",
-  "MTID": "0100",
-  "ProductID": 99883,
-  "SubBIN": 44622180,
-  "TLogIDOrg": 0,
-  "VL_Group": "MLMS_PV_GB",
-  "Dom_Fee_Fixed": 0.0000,
-  "Non_Dom_Fee_Fixed": 0.0000,
-  "Fx_Fee_Fixed": 0.0000,
-  "Other_Fee_Amt": 0.0000,
-  "Fx_Fee_Rate": 0.0000,
-  "Dom_Fee_Rate": 0.0000,
-  "Non_Dom_Fee_Rate": 0.0000,
+
   "PIN": "0",
   "SendingAttemptCount": 0
 }"
