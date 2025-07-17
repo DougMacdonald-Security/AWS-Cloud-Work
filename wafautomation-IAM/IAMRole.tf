@@ -32,7 +32,7 @@ resource "aws_iam_role_policy" "ec2reputation" {
                 "ec2:CreateNetworkInterface"
             ],
             "Resource": [
-                "arn:aws:lambda:eu-central-1:272697219259:/*"
+                "arn:aws:lambda:eu-central-1:1234:/*"
             ],
             "Effect": "Allow"
         }
@@ -59,7 +59,7 @@ resource "aws_iam_role_policy" "CloudWatchLogsListsParser" {
                 "logs:PutLogEvents"
             ],
             "Resource": [
-                "arn:aws:logs:eu-central-1:272697219259:log-group:/aws/lambda/ReputationListsParserlog" 
+                "arn:aws:logs:eu-central-1:1234:log-group:/aws/lambda/ReputationListsParserlog" 
             ],
             "Effect": "Allow"
         }
@@ -84,7 +84,7 @@ resource "aws_iam_role_policy" "sqsreputation" {
                 "sqs:SendMessage"
             ],
             "Resource": [
-                "arn:aws:sqs:eu-central-1:272697219259:*"
+                "arn:aws:sqs:eu-central-1:1234:*"
             ],
             "Effect": "Allow"
         }
@@ -130,8 +130,8 @@ resource "aws_iam_role_policy" "WAFGetAndUpdateIPListsParser" {
                 "wafv2:UpdateIPSet"
             ],
             "Resource": [
-                "arn:aws:wafv2:eu-central-1:272697219259:regional/ipset/WAFReputationListsSetV41/6aaff27c-4baa-4f1f-a988-0de889dad722",
-                "arn:aws:wafv2:eu-central-1:272697219259:regional/ipset/WAFReputationListsSetV61/c84aae18-a520-41f7-8102-173a52abde8e"
+                "arn:aws:wafv2:eu-central-1:1234:regional/ipset/WAFReputationListsSetV41/6aaff27c-4baa-4f1f-a988-0de889dad722",
+                "arn:aws:wafv2:eu-central-1:1234:regional/ipset/WAFReputationListsSetV61/c84aae18-a520-41f7-8102-173a52abde8e"
                 ],
             "Effect": "Allow"
         }
