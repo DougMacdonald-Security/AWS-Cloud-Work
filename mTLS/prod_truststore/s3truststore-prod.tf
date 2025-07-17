@@ -24,7 +24,7 @@ resource "aws_kms_key" "truststore_kms_key" {
         Sid       = "AllowTrustedAccountKMSAccess",
         Effect    = "Allow",
         Principal = {
-          AWS = "arn:aws:iam::211125625664:root" # Trusted Account
+          AWS = "arn:aws:iam::1234:root" # Trusted Account
         },
         Action    = [
           "kms:Encrypt",
@@ -38,18 +38,18 @@ resource "aws_kms_key" "truststore_kms_key" {
   })
 }
 # openssl genrsa -out PrivateCA.key 4096
-# openssl req -new -x509 -days 3650 -key PrivateCA.key -out PrivateCA.pem -subj "/CN=sec.gib.bank"
+# openssl req -new -x509 -days 3650 -key PrivateCA.key -out PrivateCA.pem -subj "/CN=sec.company.com"
 # openssl genrsa -out client.key 2048
-# openssl req -new -key client.key -out client.csr -subj "/CN=mtls.sec.gib.bank"
+# openssl req -new -key client.key -out client.csr -subj "/CN=mtls.company.com"
 # openssl x509 -req -in client.csr -CA PrivateCA.pem -CAkey PrivateCA.key -set_serial 01 -out client.pem -days 3650 -sha256
-# aws s3 cp truststore-prod.pem s3://gib-inbound-mtls-truststore-prod  --sse aws:kms --sse-kms-key-id arn:aws:kms:eu-west-2:891377009330:key/cebe5601-19d2-46b0-aca4-ab7e4a762b19
+# aws s3 cp truststore-prod.pem s3://gib-inbound-mtls-truststore-prod  --sse aws:kms --sse-kms-key-id arn:aws:kms:eu-west-2:1234:key/cebe5601-19d62b19
 
 resource "aws_lb_trust_store" "truststore" {
   depends_on = [aws_s3_bucket.secure_bucket]
   name = "mtls-truststore-prod"
 
   # Use the S3 bucket and key for the CA certificates bundle
-  ca_certificates_bundle_s3_bucket = "gib-inbound-mtls-truststore-prod"
+  ca_certificates_bundle_s3_bucket = "inbound-mtls-truststore-prod"
   ca_certificates_bundle_s3_key    = "truststore.pem"
 }
 
@@ -65,7 +65,7 @@ resource "aws_ram_resource_share" "truststore_share" {
 # AWS RAM Principal Association for Trusted Account
 resource "aws_ram_principal_association" "truststore_account" {
   resource_share_arn = aws_ram_resource_share.truststore_share.arn
-  principal          = "211125625664" # Network Account
+  principal          = "1234" # Network Account
 }
 
 # AWS RAM Resource Association for ALB Trust Store
